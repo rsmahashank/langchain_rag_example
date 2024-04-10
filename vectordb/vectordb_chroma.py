@@ -19,8 +19,6 @@ def create_vectordb(documents, embedding, persist_directory):
     vectordb = Chroma.from_documents(
         documents=documents,
         embedding=embedding,
-        persist_directory=persist_directory,
-        index_options={"dimension": 768, "method": "hnsw", "num_threads": -1}
+        persist_directory=persist_directory
     )
-    vectordb.persist()
     return vectordb

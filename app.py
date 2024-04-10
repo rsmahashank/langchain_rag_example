@@ -15,6 +15,7 @@ from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 from langchain_community.vectorstores import Chroma
 from langchain_core.documents.base import Document
+from vectordb.vectordb_chroma import create_vectordb
 
 # Set up logging
 logging.basicConfig(filename='chatbot.log', level=logging.DEBUG)
@@ -116,7 +117,7 @@ def load_and_preprocess_data(uploaded_files):
     documents = []
     for uploaded_file in uploaded_files:
         # Get the full file path of the uploaded file
-        file_path = os.path.join(os.getcwd(), uploaded_file.name)
+        file_path = os.path.join(os.getcwd() + '/uploaded_files', uploaded_file.name)
 
         # Save the uploaded file to disk
         with open(file_path, "wb") as f:
@@ -131,21 +132,6 @@ def load_and_preprocess_data(uploaded_files):
     splits = split_documents(documents)
     print(f"# of splits: {len(splits)}")
     return splits
-
-
-def load_and_preprocess_data1(uploaded_files, chunk_size=1000, chunk_overlap=100):
-    if uploaded_files:
-        documents = []
-        for uploaded_file in uploaded_files:
-            content = uploaded_file.read().decode("utf-8")
-            file_type, _ = mimetypes.guess_type(uploaded_file.name)
-            documents.append(Document(content, file_type=file_type))
-
-        # Split the documents using the splitter
-        splits = split_documents(documents)
-        return splits
-    else:
-        st.warning("Please upload at least one file.")
 
 # Upload/Train tab
 def train_tab():
@@ -175,25 +161,6 @@ def train_tab():
         else:
             st.warning("Please upload at least one file.")
 
-def create_vectordb(documents, embedding, persist_directory):
-    """
-    Create a vector database from a list of documents.
-
-    Parameters:
-        documents (list): List of document objects.
-        embedding: The embedding model to use for encoding documents.
-        persist_directory (str): Directory to persist the vector database.
-
-    Returns:
-        VectorDB: The created vector database.
-    """
-    # Assuming `Chroma` is the VectorDB class
-    vectordb = Chroma.from_documents(
-        documents=documents,
-        embedding=embedding,
-        persist_directory=persist_directory
-    )
-    return vectordb
 
 def delete_trained_data_tab():
     st.title("Delete Trained Data")
