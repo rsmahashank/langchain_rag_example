@@ -27,5 +27,3 @@ streamlit run app.py
 Clean __pycache__ from directories
 pip install pyclean
 Run `pyclean .` from terminal# langchain_rag_example
-
-brew install libmagic

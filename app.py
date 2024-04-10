@@ -4,7 +4,6 @@ import datetime
 import streamlit as st
 import logging
 import openai
-import mimetypes
 import shutil
 from langchain.text_splitter import CharacterTextSplitter, RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
@@ -76,23 +75,30 @@ def chat_tab():
     """
     st.title("Chat")
 
+    # Initialize session_state if not initialized
+    if 'enter_trigger' not in st.session_state:
+        st.session_state.enter_trigger = False
+
     # Text input for user question
     user_question = st.text_input("Enter your question:")
 
     # Listen for "Enter" key press
-    if user_question.endswith('\n'):
-        user_question = user_question[:-1]  # Remove trailing newline
+    if st.session_state.enter_trigger:
         response = ask_question(user_question)
         st.text_area("Chatbot Response:", response)
-        st.text_input("", key="enter_trigger")  # Add empty input field to trigger Enter key event
+        st.session_state.enter_trigger = False  # Reset enter_trigger
 
     # Button to submit question
     if st.button("Ask"):
+        user_question = user_question.strip()  # Remove trailing newline character
         if user_question:
             response = ask_question(user_question)
             st.text_area("Chatbot Response:", response)
         else:
             st.warning("Please enter a question.")
+
+    # Add empty input field to trigger Enter key event
+    st.empty()  # An empty placeholder triggers Enter key event automatically
 
 # Function to ask question to the conversational QA chain
 def ask_question(question):
@@ -180,12 +186,20 @@ def delete_trained_data(confirm_delete):
         # Directory containing trained data
         trained_data_dir = 'docs/chroma/'
         
-        # Check if the directory exists
-        if os.path.exists(trained_data_dir):
-            # Delete the directory and its contents
-            shutil.rmtree(trained_data_dir)
-            
-            # Notify the user that the data has been deleted
+        # Flag to indicate whether any trained data was found
+        trained_data_found = False
+        
+        """
+        Selectively delete contents within a directory, excluding 'docs/chroma' directory.
+        """
+        for item in os.listdir(trained_data_dir):
+            item_path = os.path.join(trained_data_dir, item)
+            if os.path.isdir(item_path) and item != "docs/chroma/":
+                shutil.rmtree(item_path)
+                trained_data_found = True
+                
+        # Notify the user based on whether trained data was found or not
+        if trained_data_found:
             st.success("Trained data has been successfully deleted.")
         else:
             st.warning("No trained data found.")
