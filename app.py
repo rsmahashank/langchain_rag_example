@@ -1,21 +1,23 @@
-"""
-Main module for the question-answer chatbot.
-"""
-
+# app.py
 import os
 import datetime
 import streamlit as st
 import logging
 import openai
+import mimetypes
+import shutil
+from langchain.text_splitter import CharacterTextSplitter, RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
-from loaders.pdf_loader import load_documents
-from splitters.rc_text_splitter import split_documents
+from splitters.splitters import split_documents
+from loaders.loaders import load_documents
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
+from langchain_community.vectorstores import Chroma
+from langchain_core.documents.base import Document
 
 # Set up logging
-logging.basicConfig(filename='chatbot.log', level=logging.INFO)
+logging.basicConfig(filename='chatbot.log', level=logging.DEBUG)
 
 # Set up memory for chat history
 memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
@@ -52,7 +54,7 @@ def main():
     st.title("Question-Answer Chatbot")
 
     # Sidebar tab selection
-    tab_selection = st.sidebar.selectbox("Select Option", ["Chat", "Upload/Train"])
+    tab_selection = st.sidebar.selectbox("Select Option", ["Chat", "Upload/Train", "Delete Trained Data"])
 
     # Chat tab
     if tab_selection == "Chat":
@@ -61,6 +63,10 @@ def main():
     # Upload/Train tab
     elif tab_selection == "Upload/Train":
         train_tab()
+
+    # Delete Trained Data
+    elif tab_selection == "Delete Trained Data":
+        delete_trained_data_tab()     
 
 # Chat tab
 def chat_tab():
@@ -105,8 +111,6 @@ def ask_question(question):
         logging.error(f"Error occurred during question answering: {str(e)}")
         return "I'm sorry, I encountered an error while processing your question."
 
-
-# Function to load and preprocess data
 def load_and_preprocess_data(uploaded_files):
     # Load the data from uploaded PDF files
     documents = []
@@ -128,6 +132,21 @@ def load_and_preprocess_data(uploaded_files):
     print(f"# of splits: {len(splits)}")
     return splits
 
+
+def load_and_preprocess_data1(uploaded_files, chunk_size=1000, chunk_overlap=100):
+    if uploaded_files:
+        documents = []
+        for uploaded_file in uploaded_files:
+            content = uploaded_file.read().decode("utf-8")
+            file_type, _ = mimetypes.guess_type(uploaded_file.name)
+            documents.append(Document(content, file_type=file_type))
+
+        # Split the documents using the splitter
+        splits = split_documents(documents)
+        return splits
+    else:
+        st.warning("Please upload at least one file.")
+
 # Upload/Train tab
 def train_tab():
     """
@@ -136,29 +155,25 @@ def train_tab():
     st.title("Upload Files for Training")
 
     # File uploader
-    uploaded_files = st.file_uploader("Upload PDF documents for training", type=['pdf'], accept_multiple_files=True)
+    uploaded_files = st.file_uploader("Upload files for training", type=['pdf', 'csv', 'txt'], accept_multiple_files=True)
 
     # Training process
     if st.button("Train Model"):
-          if uploaded_files:
+        if uploaded_files:
             try:
                 # Load and preprocess data
                 splits = load_and_preprocess_data(uploaded_files)
                 
-                
                 # Create and persist vector database
                 vectordb = create_vectordb(splits, embedding, persist_directory)
-
                 vectordb.persist()
                 
-                st.write("Training completed successfully!")
-                
+                st.success("Training completed successfully!")
             except Exception as e:
                 logging.error(f"Error occurred during training: {str(e)}")
                 st.error("An error occurred during training. Please check the logs for more information.")
-          else:
-            st.warning("Please upload at least one PDF document.")
-
+        else:
+            st.warning("Please upload at least one file.")
 
 def create_vectordb(documents, embedding, persist_directory):
     """
@@ -180,6 +195,35 @@ def create_vectordb(documents, embedding, persist_directory):
     )
     return vectordb
 
+def delete_trained_data_tab():
+    st.title("Delete Trained Data")
+
+    # Checkbox to confirm deletion
+    confirm_delete = st.checkbox("Confirm Training Data Deletion")
+
+    # Button to trigger deletion
+    if st.button("Delete Trained Data"):
+        delete_trained_data(confirm_delete)
+
+def delete_trained_data(confirm_delete):
+    """
+    Function to clean the training contents from persist_directory  (vectored store).
+    """
+    if confirm_delete:
+        # Directory containing trained data
+        trained_data_dir = 'docs/chroma/'
+        
+        # Check if the directory exists
+        if os.path.exists(trained_data_dir):
+            # Delete the directory and its contents
+            shutil.rmtree(trained_data_dir)
+            
+            # Notify the user that the data has been deleted
+            st.success("Trained data has been successfully deleted.")
+        else:
+            st.warning("No trained data found.")
+    else:
+        st.warning("Please confirm deletion by checking the checkbox.")
 
 if __name__ == "__main__":
     main()
